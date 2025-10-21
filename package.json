@@ -1,0 +1,46 @@
+{
+  "name": "crazycity-launcher",
+  "version": "1.0.0",
+  "description": "Launcher Minecraft pour CrazyCity - Serveur RP",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build-win": "electron-builder --win",
+    "build-linux": "electron-builder --linux",
+    "build-mac": "electron-builder --mac"
+  },
+  "author": {
+    "name": "Macsig74",
+    "github": "https://github.com/Macsig74"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "minecraft-java-core": "^4.1.4"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.crazycity.launcher",
+    "productName": "CrazyCity Launcher",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png",
+      "category": "Game"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    }
+  }
+}

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>CrazyCity Launcher</title>
+    <style>
+        /* --- (ton style inchangé) --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            overflow: hidden;
+            user-select: none;
+        }
+        .titlebar {
+            height: 35px;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            -webkit-app-region: drag;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .titlebar-title { font-size: 13px; font-weight: bold; color: #e94560; }
+        .titlebar-buttons { display: flex; gap: 10px; -webkit-app-region: no-drag; }
+        .titlebar-btn {
+            width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 16px; transition: all 0.2s;
+        }
+        .titlebar-btn:hover { background: rgba(255,255,255,0.1); }
+        .titlebar-btn.close:hover { background: #e94560; }
+        .container {
+            height: calc(100vh - 35px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        .logo {
+            font-size: 56px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #e94560, #533483);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+        }
+        .subtitle { text-align: center; font-size: 14px; opacity: 0.7; margin-bottom: 50px; }
+        .username-page {
+            display: flex; flex-direction: column; align-items: center; gap: 30px;
+            width: 100%; max-width: 400px;
+        }
+        .input-box {
+            width: 100%; background: rgba(255,255,255,0.05);
+            padding: 40px; border-radius: 15px; backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .input-label { display: block; margin-bottom: 12px; font-size: 14px; opacity: 0.9; }
+        .input-field {
+            width: 100%; padding: 15px; background: rgba(255,255,255,0.08);
+            border: 2px solid rgba(255,255,255,0.15); border-radius: 10px;
+            color: white; font-size: 16px; outline: none; transition: all 0.3s;
+        }
+        .input-field:focus { border-color: #e94560; background: rgba(255,255,255,0.12); }
+        .btn-primary {
+            width: 100%; padding: 18px;
+            background: linear-gradient(135deg, #e94560, #533483);
+            border: none; border-radius: 10px; color: white;
+            font-size: 18px; font-weight: bold; cursor: pointer;
+            transition: all 0.3s; margin-top: 20px;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(233,69,96,0.4); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .game-page { display: none; flex-direction: column; align-items: center; gap: 40px; width: 100%; }
+        .user-welcome { text-align: center; }
+        .user-avatar {
+            width: 80px; height: 80px; border-radius: 50%;
+            background: linear-gradient(135deg, #e94560, #533483);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px; margin: 0 auto 15px;
+            box-shadow: 0 5px 20px rgba(233,69,96,0.3);
+        }
+        .welcome-text { font-size: 24px; font-weight: bold; }
+        .server-info { font-size: 14px; opacity: 0.7; margin-top: 5px; }
+        .play-button {
+            width: 350px; height: 80px;
+            background: linear-gradient(135deg, #e94560, #533483);
+            border: none; border-radius: 15px; color: white;
+            font-size: 28px; font-weight: bold; cursor: pointer;
+            transition: all 0.3s; box-shadow: 0 10px 30px rgba(233,69,96,0.3);
+        }
+        .play-button:hover { transform: scale(1.05); box-shadow: 0 15px 40px rgba(233,69,96,0.5); }
+        .play-button:active { transform: scale(0.98); }
+        .play-button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .progress-container { display: none; width: 100%; max-width: 600px; margin-top: 30px; }
+        .progress-text { text-align: center; margin-bottom: 12px; font-size: 14px; }
+        .progress-bar {
+            width: 100%; height: 35px; background: rgba(255,255,255,0.08);
+            border-radius: 20px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .progress-fill {
+            height: 100%; background: linear-gradient(90deg, #e94560, #533483);
+            transition: width 0.3s; display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: bold;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .username-page, .game-page { animation: fadeIn 0.5s ease-out; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="titlebar">
+        <div class="titlebar-title">🏙️ CRAZYCITY LAUNCHER</div>
+        <div class="titlebar-buttons">
+            <div class="titlebar-btn minimize" onclick="minimize()">─</div>
+            <div class="titlebar-btn close" onclick="closeApp()">✕</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="username-page" id="usernamePage">
+            <div class="logo">🏙️ CRAZYCITY</div>
+            <div class="subtitle">Serveur Survie RP • Minecraft 1.21.1 • NeoForge</div>
+            
+            <div class="input-box">
+                <label class="input-label">Entre ton pseudo Minecraft :</label>
+                <input type="text" class="input-field" id="usernameInput" placeholder="Pseudo" maxlength="16" autofocus>
+                <button class="btn-primary" onclick="savePseudo()">Continuer ▶</button>
+            </div>
+        </div>
+
+        <div class="game-page" id="gamePage">
+            <div class="user-welcome">
+                <div class="user-avatar" id="userAvatar">👤</div>
+                <div class="welcome-text">Bienvenue <span id="displayUsername">Joueur</span> !</div>
+                <div class="server-info">🎮 192.168.1.115:25565</div>
+            </div>
+
+            <button class="play-button" id="playBtn" onclick="launchGame()">▶ JOUER</button>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-text" id="progressText">Préparation...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ✅ On attend que tout soit prêt avant de charger Electron
+        window.addEventListener('DOMContentLoaded', () => {
+            const { ipcRenderer } = require('electron');
+
+            let currentUsername = localStorage.getItem('username') || '';
+
+            const usernamePage = document.getElementById('usernamePage');
+            const gamePage = document.getElementById('gamePage');
+            const usernameInput = document.getElementById('usernameInput');
+            const playBtn = document.getElementById('playBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressText = document.getElementById('progressText');
+            const progressFill = document.getElementById('progressFill');
+            const displayUsername = document.getElementById('displayUsername');
+            const userAvatar = document.getElementById('userAvatar');
+
+            if (currentUsername) showGamePage();
+
+            usernameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') savePseudo();
+            });
+
+            function savePseudo() {
+                const username = usernameInput.value.trim();
+                if (!username) return alert('Entre un pseudo !');
+                if (username.length < 3) return alert('Le pseudo doit faire au moins 3 caractères');
+
+                currentUsername = username;
+                localStorage.setItem('username', username);
+                showGamePage();
+            }
+
+            function showGamePage() {
+                usernamePage.classList.add('hidden');
+                gamePage.style.display = 'flex';
+                displayUsername.textContent = currentUsername;
+                userAvatar.textContent = currentUsername[0].toUpperCase();
+            }
+
+            function updateProgress(percent, text) {
+                progressFill.style.width = percent + '%';
+                progressFill.textContent = Math.round(percent) + '%';
+                progressText.textContent = text;
+            }
+
+            window.launchGame = () => {
+                playBtn.disabled = true;
+                progressContainer.style.display = 'block';
+                updateProgress(0, 'Préparation...');
+                ipcRenderer.send('launch-game', currentUsername);
+            };
+
+            ipcRenderer.on('status', (_, data) => updateProgress(data.progress, data.text));
+            ipcRenderer.on('launch-complete', () => {
+                setTimeout(() => {
+                    playBtn.disabled = false;
+                    progressContainer.style.display = 'none';
+                    updateProgress(0, 'Préparation...');
+                }, 1500);
+            });
+            ipcRenderer.on('launch-error', (_, data) => {
+                alert('❌ Erreur: ' + data.error);
+                playBtn.disabled = false;
+                progressContainer.style.display = 'none';
+            });
+            ipcRenderer.on('game-closed', () => {
+                playBtn.disabled = false;
+                progressContainer.style.display = 'none';
+            });
+
+            window.closeApp = () => ipcRenderer.send('close-app');
+            window.minimize = () => ipcRenderer.send('minimize-app');
+        });
+    </script>
+</body>
+</html>
