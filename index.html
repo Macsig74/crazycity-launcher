@@ -4,163 +4,442 @@
     <meta charset="UTF-8">
     <title>CrazyCity Launcher</title>
     <style>
-        /* --- (ton style inchangé) --- */
+        /* --- Layout, colors and root variables --- */
+        :root{
+            --sidebar-width: 320px;
+            --titlebar-height: 38px;
+            --bg-image: url("NAMF-LAUNCHER.png");
+            --overlay-color: linear-gradient(135deg, rgba(10,10,22,0.55) 0%, rgba(8,10,30,0.55) 100%);
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html,body { height: 100%; }
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             color: white;
             overflow: hidden;
             user-select: none;
+            background: var(--overlay-color);
+            position: relative;
+            --progress-bg: linear-gradient(90deg, #e94560, #533483);
         }
+
+        /* Background image layer (editable via settings) */
+        body::before{
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: var(--bg-image);
+            background-size: cover;
+            background-position: center;
+            filter: blur(0px) saturate(0.9) contrast(0.9);
+            z-index: -2;
+            opacity: 0.9;
+        }
+        /* dark overlay to keep text readable */
+        body::after{
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(10,10,22,0.55) 0%, rgba(8,10,30,0.55) 100%);
+            z-index: -1;
+        }
+
+        /* titlebar */
         .titlebar {
-            height: 35px;
-            background: rgba(0,0,0,0.6);
+            height: var(--titlebar-height);
+            background: rgba(0,0,0,0.45);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 15px;
+            gap: 12px;
+            padding: 0 16px;
             -webkit-app-region: drag;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 40;
         }
         .titlebar-title { font-size: 13px; font-weight: bold; color: #e94560; }
+        .titlebar-meta { display:flex; gap:10px; align-items:center; font-size:12px; opacity:0.8; }
         .titlebar-buttons { display: flex; gap: 10px; -webkit-app-region: no-drag; }
         .titlebar-btn {
             width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; font-size: 16px; transition: all 0.2s;
+            cursor: pointer; font-size: 16px; transition: all 0.15s;
+            background: transparent; border-radius: 6px;
         }
-        .titlebar-btn:hover { background: rgba(255,255,255,0.1); }
+        .titlebar-btn:hover { background: rgba(255,255,255,0.06); }
         .titlebar-btn.close:hover { background: #e94560; }
-        .container {
-            height: calc(100vh - 35px);
+
+        /* sidebar */
+        .sidebar {
+            position: fixed;
+            top: var(--titlebar-height);
+            left: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
+            background: rgba(0,0,0,0.28);
+            border-right: 1px solid rgba(255,255,255,0.06);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            z-index: 30;
+            backdrop-filter: blur(6px);
+        }
+        .sidebar-header {
+            display:flex;
+            align-items:center;
+            gap:10px;
+            margin-bottom: 6px;
+        }
+        .sidebar-logo {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #e94560, #533483);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .sidebar-sub { font-size: 12px; opacity: 0.7; margin-left: auto; }
+
+        .sidebar-instances {
+            flex: 1;
+            overflow: auto;
+        }
+        .sidebar-instances .instance-card {
+            display: flex;
+            flex-direction: column;
+            gap:6px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(255,255,255,0.02);
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .sidebar-instances .instance-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(233,69,96,0.45);
+        }
+        .sidebar-instances .instance-card.active {
+            background: rgba(83,52,131,0.18);
+            border-color: rgba(83,52,131,0.9);
+            box-shadow: 0 10px 25px rgba(83,52,131,0.12);
+        }
+        .instance-card .title { font-weight: 700; font-size: 14px; }
+        .instance-card .meta { font-size: 12px; opacity: 0.75; }
+
+        .sidebar-bottom {
+            display:flex;
+            gap:10px;
+            align-items:center;
+            justify-content: space-between;
+        }
+        .sidebar-settings-btn {
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+            display:flex;
+            gap:10px;
+            align-items:center;
+        }
+        .sidebar-settings-btn:hover { background: rgba(255,255,255,0.06); }
+
+        /* main content area shifted right to account sidebar */
+        .main {
+            margin-top: var(--titlebar-height);
+            margin-left: var(--sidebar-width);
+            height: calc(100vh - var(--titlebar-height));
+            padding: clamp(20px, 3vw, 48px);
+            overflow: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .center-panel {
+            width: 100%;
+            max-width: 920px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 40px;
+            gap: 28px;
         }
+
         .logo {
             font-size: 56px;
             font-weight: bold;
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 4px;
             background: linear-gradient(135deg, #e94560, #533483);
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+            text-shadow: 0 0 30px rgba(233, 69, 96, 0.25);
         }
-        .subtitle { text-align: center; font-size: 14px; opacity: 0.7; margin-bottom: 50px; }
-        .username-page {
-            display: flex; flex-direction: column; align-items: center; gap: 30px;
-            width: 100%; max-width: 400px;
+        .subtitle { text-align: center; font-size: 14px; opacity: 0.85; }
+
+        .user-card {
+            width: 100%;
+            max-width: 760px;
+            display:flex;
+            gap:16px;
+            align-items:center;
+            padding: 18px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(6px);
         }
-        .input-box {
-            width: 100%; background: rgba(255,255,255,0.05);
-            padding: 40px; border-radius: 15px; backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .input-label { display: block; margin-bottom: 12px; font-size: 14px; opacity: 0.9; }
-        .input-field {
-            width: 100%; padding: 15px; background: rgba(255,255,255,0.08);
-            border: 2px solid rgba(255,255,255,0.15); border-radius: 10px;
-            color: white; font-size: 16px; outline: none; transition: all 0.3s;
-        }
-        .input-field:focus { border-color: #e94560; background: rgba(255,255,255,0.12); }
-        .btn-primary {
-            width: 100%; padding: 18px;
-            background: linear-gradient(135deg, #e94560, #533483);
-            border: none; border-radius: 10px; color: white;
-            font-size: 18px; font-weight: bold; cursor: pointer;
-            transition: all 0.3s; margin-top: 20px;
-        }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(233,69,96,0.4); }
-        .btn-primary:active { transform: translateY(0); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-        .game-page { display: none; flex-direction: column; align-items: center; gap: 40px; width: 100%; }
-        .user-welcome { text-align: center; }
         .user-avatar {
-            width: 80px; height: 80px; border-radius: 50%;
+            width: 96px; height: 96px; border-radius: 12px;
             background: linear-gradient(135deg, #e94560, #533483);
             display: flex; align-items: center; justify-content: center;
-            font-size: 36px; margin: 0 auto 15px;
-            box-shadow: 0 5px 20px rgba(233,69,96,0.3);
+            font-size: 36px; color: white;
+            background-size: cover; background-position: center;
         }
-        .welcome-text { font-size: 24px; font-weight: bold; }
-        .server-info { font-size: 14px; opacity: 0.7; margin-top: 5px; }
+        .user-info { flex: 1; }
+        .welcome-text { font-size: 20px; font-weight: 700; }
+        .server-info { font-size: 13px; opacity: 0.75; margin-top: 6px; }
+
+        .controls {
+            display:flex;
+            gap:16px;
+            align-items:center;
+            margin-top: 6px;
+        }
         .play-button {
-            width: 350px; height: 80px;
+            padding: 18px 30px;
             background: linear-gradient(135deg, #e94560, #533483);
-            border: none; border-radius: 15px; color: white;
-            font-size: 28px; font-weight: bold; cursor: pointer;
-            transition: all 0.3s; box-shadow: 0 10px 30px rgba(233,69,96,0.3);
+            border: none; border-radius: 12px; color: white;
+            font-size: 20px; font-weight: bold; cursor: pointer;
+            transition: all 0.2s; box-shadow: 0 10px 30px rgba(233,69,96,0.3);
         }
-        .play-button:hover { transform: scale(1.05); box-shadow: 0 15px 40px rgba(233,69,96,0.5); }
-        .play-button:active { transform: scale(0.98); }
         .play-button:disabled { opacity: 0.6; cursor: not-allowed; }
-        .progress-container { display: none; width: 100%; max-width: 600px; margin-top: 30px; }
-        .progress-text { text-align: center; margin-bottom: 12px; font-size: 14px; }
+
+        .progress-container { display: none; width: 100%; max-width: 760px; margin-top: 8px; }
         .progress-bar {
-            width: 100%; height: 35px; background: rgba(255,255,255,0.08);
-            border-radius: 20px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);
+            width: 100%; height: 28px; background: rgba(255,255,255,0.06);
+            border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);
         }
         .progress-fill {
-            height: 100%; background: linear-gradient(90deg, #e94560, #533483);
-            transition: width 0.3s; display: flex; align-items: center; justify-content: center;
-            font-size: 13px; font-weight: bold;
+            height: 100%;
+            background: var(--progress-bg);
+            transition: width 0.25s; display:flex; align-items:center; justify-content:center;
+            font-size: 12px; font-weight: 700;
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .username-page, .game-page { animation: fadeIn 0.5s ease-out; }
+
+        /* settings modal kept similar but moved z-index above everything */
+        .settings-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.65);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+        }
+        .settings-modal.active { display: flex; }
+        .settings-content {
+            background: linear-gradient(135deg, #0f1724 0%, #121427 100%);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 22px;
+            max-width: 760px;
+            width: 92%;
+            max-height: 88vh;
+            overflow-y: auto;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+        }
+        .settings-header { display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; }
+        .settings-title { font-size: 18px; font-weight:700; }
+        .settings-row { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+        .settings-label { min-width: 140px; font-size: 13px; opacity:0.85; }
+        .settings-input { flex:1; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); color: white; }
+        .settings-save { margin-top: 8px; padding: 10px 12px; border-radius:10px; border:none; cursor:pointer; background: linear-gradient(135deg, #e94560, #533483); color:white; font-weight:700; }
+
+        /* small screens */
+        @media (max-width: 900px) {
+            :root { --sidebar-width: 260px; }
+            .logo { font-size: 44px; }
+            .user-avatar { width: 76px; height: 76px; }
+        }
+        @media (max-width: 720px) {
+            .sidebar { position: relative; width: 100%; height: auto; top: var(--titlebar-height); display: flex; flex-direction: row; gap:10px; padding:8px; }
+            .sidebar { overflow: auto; }
+            .main { margin-left: 0; margin-top: calc(var(--titlebar-height) + 120px); padding: 14px; }
+            .sidebar-instances { display:flex; gap:8px; overflow:auto; }
+            .sidebar-instances .instance-card { min-width: 200px; flex: 0 0 auto; }
+        }
+
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
     <div class="titlebar">
-        <div class="titlebar-title">🏙️ CRAZYCITY LAUNCHER</div>
+        <div class="titlebar-meta">
+            <div class="titlebar-title">NAMF LAUNCHER</div>
+            <div id="appVersion">v0.0.0</div>
+        </div>
         <div class="titlebar-buttons">
+            <div class="titlebar-btn settings" id="settingsBtn" onclick="openSettings()" title="Paramètres">⚙️</div>
             <div class="titlebar-btn minimize" onclick="minimize()">─</div>
             <div class="titlebar-btn close" onclick="closeApp()">✕</div>
         </div>
     </div>
 
-    <div class="container">
-        <div class="username-page" id="usernamePage">
-            <div class="logo">🏙️ CRAZYCITY</div>
-            <div class="subtitle">Serveur Survie RP • Minecraft 1.21.1 • NeoForge</div>
-            
-            <div class="input-box">
-                <label class="input-label">Entre ton pseudo Minecraft :</label>
-                <input type="text" class="input-field" id="usernameInput" placeholder="Pseudo" maxlength="16" autofocus>
-                <button class="btn-primary" onclick="savePseudo()">Continuer ▶</button>
-            </div>
+    <!-- Sidebar with instance list and bottom settings -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">🏙️ CRAZYCITY</div>
+            <div class="sidebar-sub">1.21.1 • NeoForge</div>
         </div>
 
-        <div class="game-page" id="gamePage">
-            <div class="user-welcome">
+        <div class="sidebar-instances" id="sidebarInstances">
+            <div class="instance-empty">Chargement des instances...</div>
+        </div>
+
+        <div class="sidebar-bottom">
+            <button class="sidebar-settings-btn" onclick="openSettings()" id="sidebarSettingsBtn">
+                <span>⚙️ Paramètres</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main">
+        <div class="center-panel">
+            <div class="logo">🏙️ CRAZYCITY</div>
+            <div class="subtitle">Serveur moddé RP • Minecraft 1.21.1 • NeoForge</div>
+
+            <div class="user-card" id="userCard">
                 <div class="user-avatar" id="userAvatar">👤</div>
-                <div class="welcome-text">Bienvenue <span id="displayUsername">Joueur</span> !</div>
-                <div class="server-info">🎮 192.168.1.115:25565</div>
-            </div>
-
-            <button class="play-button" id="playBtn" onclick="launchGame()">▶ JOUER</button>
-
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-text" id="progressText">Préparation...</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+                <div class="user-info">
+                    <div class="welcome-text">Bienvenue <span id="displayUsername">Joueur</span> !</div>
+                    <div class="server-info" id="serverInfo">🎮 Instance indisponible</div>
+                    <div style="margin-top:8px;">
+                        <button class="link-button" id="switchAccountBtn">Changer de pseudo</button>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+                    <div id="accountBadge" class="account-badge" style="padding:6px 12px;border-radius:10px;background:rgba(255,255,255,0.04);font-size:12px;">Mode hors-ligne</div>
+                    <button class="play-button" id="playBtn" onclick="launchGame()">▶ JOUER</button>
                 </div>
             </div>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width:0%;">0%</div>
+                </div>
+                <div style="margin-top:8px;text-align:center;font-size:13px;color:rgba(255,255,255,0.7);" id="progressText">Préparation...</div>
+            </div>
+
+            <!-- Simple offline username entry panel (shown when not logged in) -->
+            <div class="input-box" id="usernameBox" style="width:100%;max-width:760px;display:none;">
+                <label class="input-label">Entre ton pseudo Minecraft :</label>
+                <input type="text" class="input-field" id="usernameInput" placeholder="Pseudo" maxlength="16" autofocus style="margin-top:8px;">
+                <div style="display:flex;gap:10px;margin-top:12px;">
+                    <button class="btn-primary" onclick="savePseudo()">Continuer ▶</button>
+                    <button class="btn-microsoft" id="microsoftBtn">Se connecter avec Microsoft</button>
+                </div>
+                <div class="login-error" id="loginError"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings modal (added background image field) -->
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <div class="settings-title">⚙️ Paramètres</div>
+                <button class="settings-close" onclick="closeSettings()">✕</button>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Apparence</div>
+                <div class="settings-row">
+                    <label class="settings-label">Image de fond (URL ou chemin local) :</label>
+                    <input type="text" class="settings-input" id="backgroundImage" placeholder="https://... ou C:\path\to\image.jpg">
+                </div>
+                <div class="settings-row" style="justify-content:flex-end;">
+                    <button id="clearBackgroundBtn" class="settings-save" style="background:rgba(255,255,255,0.06);color:#fff;font-weight:600;">Effacer l'image</button>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Mémoire (RAM)</div>
+                <div class="settings-row">
+                    <label class="settings-label">Minimum :</label>
+                    <input type="text" class="settings-input settings-input-small" id="ramMin" placeholder="2G" style="width:120px;" pattern="[0-9]+[GM]">
+                    <label class="settings-label">Maximum :</label>
+                    <input type="text" class="settings-input settings-input-small" id="ramMax" placeholder="4G" style="width:120px;" pattern="[0-9]+[GM]">
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Java</div>
+                <div class="settings-row">
+                    <label class="settings-label">Chemin Java :</label>
+                    <input type="text" class="settings-input" id="javaPath" placeholder="Auto-détecté (laisser vide)">
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Version Java :</label>
+                    <input type="text" class="settings-input settings-input-small" id="javaVersion" placeholder="Auto" style="width:120px;">
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Affichage</div>
+                <div class="settings-row">
+                    <label class="settings-label">Largeur :</label>
+                    <input type="number" class="settings-input settings-input-small" id="screenWidth" placeholder="1280" min="800" style="width:120px;">
+                    <label class="settings-label">Hauteur :</label>
+                    <input type="number" class="settings-input settings-input-small" id="screenHeight" placeholder="720" min="600" style="width:120px;">
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Plein écran :</label>
+                    <input type="checkbox" class="settings-checkbox" id="screenFullscreen">
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Arguments JVM (avancé)</div>
+                <div class="settings-row">
+                    <label class="settings-label">Arguments supplémentaires :</label>
+                    <input type="text" class="settings-input" id="jvmArgs" placeholder="Ex: -XX:+UseG1GC">
+                </div>
+                <div style="font-size: 12px; opacity: 0.6; margin-top: 8px;">
+                    Note: Les arguments RAM (-Xmx, -Xms) sont gérés ci-dessus. Ajoutez ici uniquement des arguments supplémentaires.
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="settings-group-title">Connexion</div>
+                <div class="settings-row">
+                    <label class="settings-label">Connexion auto au serveur :</label>
+                    <input type="checkbox" class="settings-checkbox" id="autoConnect" checked>
+                </div>
+            </div>
+
+            <button class="settings-save" id="settingsSaveBtn">💾 Enregistrer</button>
         </div>
     </div>
 
     <script>
-        // ✅ On attend que tout soit prêt avant de charger Electron
         window.addEventListener('DOMContentLoaded', () => {
             const { ipcRenderer } = require('electron');
 
-            let currentUsername = localStorage.getItem('username') || '';
-
-            const usernamePage = document.getElementById('usernamePage');
-            const gamePage = document.getElementById('gamePage');
+            // UI elements
+            const usernameBox = document.getElementById('usernameBox');
             const usernameInput = document.getElementById('usernameInput');
             const playBtn = document.getElementById('playBtn');
             const progressContainer = document.getElementById('progressContainer');
@@ -168,63 +447,402 @@
             const progressFill = document.getElementById('progressFill');
             const displayUsername = document.getElementById('displayUsername');
             const userAvatar = document.getElementById('userAvatar');
+            const microsoftBtn = document.getElementById('microsoftBtn');
+            const accountBadge = document.getElementById('accountBadge');
+            const switchAccountBtn = document.getElementById('switchAccountBtn');
+            const loginError = document.getElementById('loginError');
+            const sidebarInstances = document.getElementById('sidebarInstances');
+            const serverInfo = document.getElementById('serverInfo');
+            const instanceInfo = document.getElementById('instanceInfo');
+            const appVersionLabel = document.getElementById('appVersion');
+            const defaultProgressBackground = progressFill.style.background;
 
-            if (currentUsername) showGamePage();
+            // settings inputs for background image
+            const backgroundImageInput = document.getElementById('NAMF-LAUNCHER.png');
+            const clearBackgroundBtn = document.getElementById('clearBackgroundBtn');
 
+            // state
+            let currentAccount = {
+                type: 'offline',
+                username: localStorage.getItem('username') || '',
+                avatar: null,
+                avatarUrl: null
+            };
+            let availableInstances = [];
+            let selectedInstanceId = localStorage.getItem('instanceId') || null;
+
+            usernameInput.value = currentAccount.username;
+            if (currentAccount.username) {
+                showGamePage();
+            } else {
+                showLoginPage();
+            }
+
+            // load app version
+            ipcRenderer.invoke('app:get-version').then((version) => {
+                if (version && appVersionLabel) appVersionLabel.textContent = `v${version}`;
+            }).catch(() => {});
+
+            // try to restore Microsoft session
+            ipcRenderer.invoke('auth:get-microsoft-profile')
+                .then((profile) => {
+                    if (profile) {
+                        currentAccount = profile;
+                        showGamePage();
+                    }
+                })
+                .catch(() => {});
+
+            // load instances and settings
+            loadInstances();
+            loadSettings();
+
+            // events
             usernameInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') savePseudo();
             });
+            microsoftBtn.addEventListener('click', handleMicrosoftLogin);
+            switchAccountBtn.addEventListener('click', () => logoutAndShowLogin());
+
+            clearBackgroundBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                backgroundImageInput.value = '';
+                applyBackgroundImage(null);
+            });
+
+            async function loadInstances() {
+                try {
+                    const instances = await ipcRenderer.invoke('launcher:get-instances');
+                    availableInstances = Array.isArray(instances) ? instances : [];
+                    if (!availableInstances.length) {
+                        sidebarInstances.innerHTML = '<div class="instance-empty">Aucune instance disponible. Configure une instance côté serveur.</div>';
+                        serverInfo.textContent = '🎮 Instance indisponible';
+                        return;
+                    }
+                    if (!selectedInstanceId || !availableInstances.some((inst) => inst.id === selectedInstanceId)) {
+                        const fallback = availableInstances.find((inst) => inst.isDefault) || availableInstances[0];
+                        selectedInstanceId = fallback.id;
+                        localStorage.setItem('instanceId', selectedInstanceId);
+                    }
+                    renderInstances();
+                    updateInstanceInfo();
+                } catch (error) {
+                    console.error('Unable to load instances:', error);
+                    sidebarInstances.innerHTML = '<div class="instance-empty">Impossible de charger les instances.</div>';
+                }
+            }
+
+            function renderInstances() {
+                if (!availableInstances.length) {
+                    sidebarInstances.innerHTML = '<div class="instance-empty">Aucune instance disponible.</div>';
+                    return;
+                }
+                sidebarInstances.innerHTML = '';
+                availableInstances.forEach((instance) => {
+                    const card = document.createElement('div');
+                    card.className = `instance-card${instance.id === selectedInstanceId ? ' active' : ''}`;
+                    const loaderLabel = instance.loader?.type
+                        ? `${instance.loader.type} ${instance.loader.build || ''}`.trim()
+                        : 'Vanilla';
+                    const serverLabel = instance.server
+                        ? `${instance.server.ip}:${instance.server.port}`
+                        : 'Solo / Local';
+                    card.innerHTML = `
+                        <div class="title">${instance.name}</div>
+                        <div class="meta">${instance.mcVersion} • ${loaderLabel}</div>
+                        <div class="meta" style="opacity:0.6;margin-top:6px;font-size:12px;">${instance.description || 'Aucun descriptif'}</div>
+                    `;
+                    card.addEventListener('click', () => selectInstance(instance.id));
+                    sidebarInstances.appendChild(card);
+                });
+            }
+
+            function selectInstance(id) {
+                if (selectedInstanceId === id) return;
+                selectedInstanceId = id;
+                localStorage.setItem('instanceId', id);
+                renderInstances();
+                updateInstanceInfo();
+            }
+
+            function getSelectedInstance() {
+                return availableInstances.find((instance) => instance.id === selectedInstanceId);
+            }
+
+            function updateInstanceInfo() {
+                const instance = getSelectedInstance();
+                if (!instance) {
+                    serverInfo.textContent = '🎮 Instance indisponible';
+                    return;
+                }
+                serverInfo.textContent = instance.server ? `🎮 ${instance.server.ip}:${instance.server.port}` : '🎮 Mode solo/local';
+            }
 
             function savePseudo() {
                 const username = usernameInput.value.trim();
                 if (!username) return alert('Entre un pseudo !');
                 if (username.length < 3) return alert('Le pseudo doit faire au moins 3 caractères');
-
-                currentUsername = username;
                 localStorage.setItem('username', username);
+                currentAccount = { type: 'offline', username, avatar: null, avatarUrl: null };
                 showGamePage();
             }
 
             function showGamePage() {
-                usernamePage.classList.add('hidden');
-                gamePage.style.display = 'flex';
-                displayUsername.textContent = currentUsername;
-                userAvatar.textContent = currentUsername[0].toUpperCase();
+                if (!currentAccount.username) return;
+                usernameBox.style.display = 'none';
+                displayUsername.textContent = currentAccount.username;
+                updateAvatar();
+                updateInstanceInfo();
+                accountBadge.textContent = currentAccount.type === 'microsoft' ? 'Connecté avec Microsoft' : 'Mode hors-ligne';
+                switchAccountBtn.textContent = currentAccount.type === 'microsoft' ? 'Se déconnecter' : 'Changer de pseudo';
+            }
+
+            function showLoginPage() {
+                usernameBox.style.display = 'block';
+                usernameInput.focus();
+            }
+
+            function updateAvatar() {
+                if (currentAccount.avatar) {
+                    extractHeadFromSkin(currentAccount.avatar, currentAccount.avatarUrl).then((headDataUrl) => {
+                        if (headDataUrl) {
+                            userAvatar.style.backgroundImage = `url(${headDataUrl})`;
+                            userAvatar.textContent = '';
+                        } else {
+                            userAvatar.style.backgroundImage = 'none';
+                            userAvatar.textContent = currentAccount.username[0]?.toUpperCase() || '👤';
+                        }
+                    }).catch(() => {
+                        userAvatar.style.backgroundImage = 'none';
+                        userAvatar.textContent = currentAccount.username[0]?.toUpperCase() || '👤';
+                    });
+                } else {
+                    userAvatar.style.backgroundImage = 'none';
+                    userAvatar.textContent = currentAccount.username[0]?.toUpperCase() || '👤';
+                }
+            }
+
+            function extractHeadFromSkin(base64Skin, skinUrl) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 64; canvas.height = 64;
+                            const ctx = canvas.getContext('2d');
+                            ctx.imageSmoothingEnabled = true;
+                            ctx.imageSmoothingQuality = 'high';
+                            const sw = img.width, sh = img.height;
+                            const is64 = sw === 64 && sh === 64;
+                            const is128 = sw === 128 && sh === 128;
+                            if (is64) {
+                                ctx.drawImage(img, 8, 8, 8, 8, 0, 0, 64, 64);
+                                if (sh >= 32) ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 64, 64);
+                            } else if (is128) {
+                                ctx.drawImage(img, 16, 16, 16, 16, 0, 0, 64, 64);
+                                if (sh >= 64) ctx.drawImage(img, 80, 16, 16, 16, 0, 0, 64, 64);
+                            } else {
+                                const headSize = Math.min(sw / 8, sh / 8);
+                                ctx.drawImage(img, headSize, headSize, headSize, headSize, 0, 0, 64, 64);
+                            }
+                            resolve(canvas.toDataURL('image/png'));
+                        } catch (err) {
+                            console.error('Error extracting head:', err);
+                            resolve(null);
+                        }
+                    };
+                    img.onerror = () => resolve(null);
+                    if (base64Skin) {
+                        img.src = base64Skin.startsWith('data:') ? base64Skin : `data:image/png;base64,${base64Skin}`;
+                    } else if (skinUrl) {
+                        img.src = skinUrl;
+                    } else resolve(null);
+                });
             }
 
             function updateProgress(percent, text) {
-                progressFill.style.width = percent + '%';
-                progressFill.textContent = Math.round(percent) + '%';
-                progressText.textContent = text;
+                const safe = Math.max(0, Math.min(100, percent || 0));
+                progressFill.style.width = safe + '%';
+                progressFill.textContent = Math.round(safe) + '%';
+                progressText.textContent = text || 'Préparation...';
             }
 
-            window.launchGame = () => {
-                playBtn.disabled = true;
+            function renderStatus(data = {}) {
+                if (!data) return;
                 progressContainer.style.display = 'block';
-                updateProgress(0, 'Préparation...');
-                ipcRenderer.send('launch-game', currentUsername);
-            };
+                const message = [data.step, data.detail].filter(Boolean).join(' • ') || 'Préparation...';
+                if (typeof data.progress === 'number') updateProgress(data.progress, message);
+                else progressText.textContent = message;
+                progressFill.style.background = data.color || defaultProgressBackground;
+            }
 
-            ipcRenderer.on('status', (_, data) => updateProgress(data.progress, data.text));
-            ipcRenderer.on('launch-complete', () => {
+            async function handleMicrosoftLogin() {
+                loginError.textContent = '';
+                microsoftBtn.disabled = true;
+                microsoftBtn.textContent = 'Connexion...';
+                try {
+                    const profile = await ipcRenderer.invoke('auth:microsoft-login');
+                    currentAccount = profile;
+                    showGamePage();
+                } catch (error) {
+                    loginError.textContent = error.message || 'Connexion Microsoft impossible.';
+                } finally {
+                    microsoftBtn.disabled = false;
+                    microsoftBtn.textContent = 'Se connecter avec Microsoft';
+                }
+            }
+
+            async function logoutAndShowLogin(message) {
+                if (currentAccount.type === 'microsoft') {
+                    await ipcRenderer.invoke('auth:logout').catch(() => {});
+                }
+                currentAccount = {
+                    type: 'offline',
+                    username: localStorage.getItem('username') || '',
+                    avatar: null,
+                    avatarUrl: null
+                };
+                usernameInput.value = currentAccount.username;
+                playBtn.disabled = false;
+                progressContainer.style.display = 'none';
+                progressFill.style.background = defaultProgressBackground;
+                updateProgress(0, 'Préparation...');
+                showLoginPage();
+                if (message) alert(message);
+            }
+
+            function finishLaunch() {
                 setTimeout(() => {
                     playBtn.disabled = false;
                     progressContainer.style.display = 'none';
+                    progressFill.style.background = defaultProgressBackground;
                     updateProgress(0, 'Préparation...');
-                }, 1500);
+                }, 800);
+            }
+
+            window.launchGame = () => {
+                if (currentAccount.type === 'offline' && (!currentAccount.username || currentAccount.username.length < 3)) {
+                    return alert('Sélectionne un pseudo valide avant de lancer le jeu.');
+                }
+                const instance = getSelectedInstance();
+                if (!instance) {
+                    return alert('Aucune instance disponible. Vérifie la configuration.');
+                }
+                playBtn.disabled = true;
+                progressContainer.style.display = 'block';
+                updateProgress(0, 'Préparation...');
+                ipcRenderer.send('launch-game', { account: currentAccount, instanceId: instance.id });
+            };
+
+            // IPC listeners
+            ipcRenderer.on('status', (_, data) => renderStatus(data));
+            ipcRenderer.on('launch-complete', finishLaunch);
+            ipcRenderer.on('launch-error', (_, info) => {
+                finishLaunch();
+                if (info?.error) alert('❌ Erreur: ' + info.error);
             });
-            ipcRenderer.on('launch-error', (_, data) => {
-                alert('❌ Erreur: ' + data.error);
-                playBtn.disabled = false;
-                progressContainer.style.display = 'none';
-            });
-            ipcRenderer.on('game-closed', () => {
-                playBtn.disabled = false;
-                progressContainer.style.display = 'none';
+            ipcRenderer.on('game-closed', finishLaunch);
+            ipcRenderer.on('auth:microsoft-expired', () => {
+                logoutAndShowLogin('Session Microsoft expirée. Merci de vous reconnecter.');
             });
 
+            // Settings handling (now includes background image)
+            let currentSettings = null;
+            async function loadSettings() {
+                try {
+                    currentSettings = await ipcRenderer.invoke('settings:get');
+                    if (currentSettings) {
+                        document.getElementById('ramMin').value = currentSettings.memory?.min || '2G';
+                        document.getElementById('ramMax').value = currentSettings.memory?.max || '4G';
+                        document.getElementById('javaPath').value = currentSettings.javaPath || '';
+                        document.getElementById('javaVersion').value = currentSettings.javaVersion || '';
+                        document.getElementById('screenWidth').value = currentSettings.screen?.width || 1280;
+                        document.getElementById('screenHeight').value = currentSettings.screen?.height || 720;
+                        document.getElementById('screenFullscreen').checked = currentSettings.screen?.fullscreen || false;
+                        document.getElementById('jvmArgs').value = (currentSettings.jvmArgs || []).join(' ');
+                        document.getElementById('autoConnect').checked = currentSettings.autoConnect !== false;
+                        backgroundImageInput.value = currentSettings.appearance?.backgroundImage || '';
+                        applyBackgroundImage(currentSettings.appearance?.backgroundImage || null);
+                    } else {
+                        applyBackgroundImage(null);
+                    }
+                } catch (error) {
+                    console.error('Unable to load settings:', error);
+                }
+            }
+
+            async function saveSettings() {
+                try {
+                    const ramMin = document.getElementById('ramMin').value.trim();
+                    const ramMax = document.getElementById('ramMax').value.trim();
+                    if (!ramMin || !ramMax) {
+                        alert('❌ Veuillez remplir les champs RAM minimum et maximum.');
+                        return;
+                    }
+                    const jvmArgsInput = document.getElementById('jvmArgs').value.trim();
+                    const settings = {
+                        memory: { min: ramMin, max: ramMax },
+                        javaPath: document.getElementById('javaPath').value.trim() || null,
+                        javaVersion: document.getElementById('javaVersion').value.trim() || null,
+                        screen: {
+                            width: parseInt(document.getElementById('screenWidth').value) || 1280,
+                            height: parseInt(document.getElementById('screenHeight').value) || 720,
+                            fullscreen: document.getElementById('screenFullscreen').checked
+                        },
+                        jvmArgs: jvmArgsInput ? jvmArgsInput.split(/\s+/).filter(s => s.trim()) : [],
+                        autoConnect: document.getElementById('autoConnect').checked,
+                        appearance: {
+                            backgroundImage: backgroundImageInput.value.trim() || null
+                        }
+                    };
+                    const result = await ipcRenderer.invoke('settings:save', settings);
+                    if (result) {
+                        currentSettings = settings;
+                        applyBackgroundImage(settings.appearance.backgroundImage || null);
+                        closeSettings();
+                        alert('✅ Paramètres enregistrés avec succès !');
+                    } else {
+                        alert('❌ Erreur lors de l\'enregistrement.');
+                    }
+                } catch (error) {
+                    console.error('Save settings error:', error);
+                    alert('❌ Erreur lors de l\'enregistrement : ' + (error.message || 'Erreur inconnue'));
+                }
+            }
+
+            function applyBackgroundImage(value) {
+                // sanitize quickly for CSS: wrap in url("...") if provided, otherwise set none
+                if (value) {
+                    // prefer absolute URLs or file paths; escaping quotes
+                    const escaped = value.replace(/(["\\])/g, '\\$1');
+                    document.body.style.setProperty('--bg-image', `url("${escaped}")`);
+                } else {
+                    document.body.style.setProperty('--bg-image', 'none');
+                }
+            }
+
+            window.openSettings = () => {
+                loadSettings();
+                document.getElementById('settingsModal').classList.add('active');
+            };
+            window.closeSettings = () => {
+                document.getElementById('settingsModal').classList.remove('active');
+            };
+            document.getElementById('settingsSaveBtn').addEventListener('click', saveSettings);
+            const settingsModal = document.getElementById('settingsModal');
+            if (settingsModal) {
+                settingsModal.addEventListener('click', (e) => {
+                    if (e.target.id === 'settingsModal') closeSettings();
+                });
+            }
+
+            // app window controls
             window.closeApp = () => ipcRenderer.send('close-app');
             window.minimize = () => ipcRenderer.send('minimize-app');
+
+            // expose for template compatibility
+            window.savePseudo = savePseudo;
         });
     </script>
 </body>

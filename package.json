@@ -1,7 +1,7 @@
 {
-  "name": "crazycity-launcher",
-  "version": "1.0.2",
-  "description": "Launcher Minecraft pour CrazyCity - Serveur RP",
+  "name": "NAMF-launcher",
+  "version": "1.0.4",
+  "description": "Launcher Minecraft pour la team NAMF ",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -17,7 +17,8 @@
   "license": "MIT",
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "minecraft-java-core": "^4.1.4"
+    "minecraft-java-core": "^4.2.3",
+    "prismarine-auth": "^2.7.0"
   },
   "devDependencies": {
     "electron": "^30.5.1",
