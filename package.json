@@ -1,21 +1,28 @@
 {
   "name": "NAMF-launcher",
-  "version": "1.0.5",
+  "version": "1.0.6",
+  "description": "Modern Minecraft launcher with multi-instance support",
+  "author": "Your Name",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win --mac --linux",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
+    "build:win": "electron-builder --win --publish never",
+    "build:mac": "electron-builder --mac --publish never",
+    "build:linux": "electron-builder --linux --publish never"
   },
   "devDependencies": {
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1"
   },
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "minecraft-java-core": "^3.3.2",
+    "prismarine-auth": "^2.3.0"
+  },
   "build": {
-    "appId": "com.crazycity.launcher",
+    "appId": "com.namf.launcher",
     "productName": "NAMF Launcher",
+    "publish": null,
     "directories": {
       "output": "dist"
     },
@@ -26,18 +33,36 @@
       "node_modules/**/*"
     ],
     "win": {
-      "target": ["nsis"],
-      "icon": "build/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
     },
     "mac": {
-      "target": ["dmg"],
-      "category": "public.app-category.games",
-      "icon": "build/icon.icns"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.games"
     },
     "linux": {
-      "target": ["AppImage"],
-      "category": "Game",
-      "icon": "build/icon.png"
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Game"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }
