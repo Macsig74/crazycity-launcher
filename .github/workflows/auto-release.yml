@@ -8,57 +8,81 @@ on:
 jobs:
   build-and-release:
     runs-on: ${{ matrix.os }}
-
+    
     strategy:
       matrix:
-        os: [windows-latest, macos-latest]   # 👈 Linux supprimé
-
+        os: [windows-latest, macos-latest]
+    
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@v3
+      
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'npm'
-
+      
       - name: Install dependencies
         run: npm ci
-
+      
       - name: Build for Windows
         if: matrix.os == 'windows-latest'
         run: npm run build:win
-
+      
       - name: Build for macOS
         if: matrix.os == 'macos-latest'
         run: npm run build:mac
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      
+      - name: Upload Windows artifacts
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.os }}-build
-          path: dist/*
+          name: windows-build
+          path: |
+            dist/*.exe
+          if-no-files-found: error
+      
+      - name: Upload macOS artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-build
+          path: |
+            dist/*.dmg
+          if-no-files-found: error
 
   create-release:
     needs: build-and-release
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
+    
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@v3
+      
       - name: Get version from package.json
         id: package-version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v3
         with:
-          path: ./artifacts
-
+          name: windows-build
+          path: ./release-files
+      
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: macos-build
+          path: ./release-files
+      
+      - name: Display files to upload
+        run: |
+          echo "Files that will be uploaded to release:"
+          ls -lh ./release-files/
+      
       - name: Generate release tag
         id: tag
         run: |
@@ -66,23 +90,48 @@ jobs:
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
           TAG="v${VERSION}-${TIMESTAMP}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
-
+          echo "Generated tag: ${TAG}"
+      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: Release ${{ steps.tag.outputs.tag }}
+          name: NAMF Launcher ${{ steps.tag.outputs.tag }}
           body: |
-            🚀 **Automatic Release**
+            🚀 **NAMF Launcher - Automatic Release**
             
             📦 **Version**: ${{ steps.package-version.outputs.version }}
             👤 **Author**: ${{ github.actor }}
             💬 **Commit**: ${{ github.event.head_commit.message }}
+            🔗 **Commit SHA**: ${{ github.sha }}
+            
+            ---
             
             ### 📥 Downloads
-            - **Windows**: `.exe`  
-            - **macOS**: `.dmg`
-          files: |
-            ./artifacts/**/*
+            
+            Choose the version for your operating system:
+            
+            - **🪟 Windows**: Download the `.exe` file
+            - **🍎 macOS**: Download the `.dmg` file
+            
+            ### 🔧 Installation
+            
+            **Windows:**
+            1. Download `NAMF Launcher Setup.exe`
+            2. Run the installer
+            3. Follow the installation wizard
+            
+            **macOS:**
+            1. Download `NAMF Launcher.dmg`
+            2. Open the DMG file
+            3. Drag the app to Applications folder
+            4. Right-click → Open (first time only)
+            
+            ### ✨ What's New
+            
+            Check the commit message above for changes in this release.
+          draft: false
+          prerelease: false
+          files: ./release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

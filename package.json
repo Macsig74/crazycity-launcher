@@ -1,6 +1,6 @@
 {
   "name": "NAMF-launcher",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Modern Minecraft launcher with multi-instance support",
   "author": "Your Name",
   "main": "main.js",
