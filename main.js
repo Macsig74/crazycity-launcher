@@ -9,6 +9,28 @@ const { Authflow, Titles } = require('prismarine-auth');
 
 let mainWindow;
 
+// Détection environnement dev/prod
+const isDev = !app.isPackaged;
+
+// Système de logs persistants
+const logPath = path.join(app.getPath('userData'), 'launcher.log');
+
+function log(message) {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}`;
+    console.log(logMessage);
+    try {
+        fs.appendFileSync(logPath, logMessage + '\n');
+    } catch (err) {
+        console.error('Failed to write log:', err);
+    }
+}
+
+log('=== LAUNCHER STARTED ===');
+log(`Environment: ${isDev ? 'DEVELOPMENT' : 'PRODUCTION'}`);
+log(`App version: ${app.getVersion()}`);
+log(`User data path: ${app.getPath('userData')}`);
+
 // Configuration des instances
 const CONFIG = {
     DEFAULT_INSTANCE: 'crazycity',
@@ -75,7 +97,7 @@ function loadSettings() {
         const loaded = JSON.parse(raw);
         return { ...DEFAULT_SETTINGS, ...loaded };
     } catch (error) {
-        console.error('Unable to load settings:', error);
+        log('Unable to load settings: ' + error.message);
         return DEFAULT_SETTINGS;
     }
 }
@@ -86,7 +108,7 @@ function saveSettings(settings) {
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 4), 'utf-8');
         return true;
     } catch (error) {
-        console.error('Unable to save settings:', error);
+        log('Unable to save settings: ' + error.message);
         return false;
     }
 }
@@ -96,7 +118,6 @@ let microsoftLoginInProgress = false;
 let authflow = null;
 
 // === AUTHENTIFICATION MICROSOFT ===
-// Utilisation du flow "sisu" (Xbox) plus fiable
 function initAuthflow() {
     if (!authflow) {
         const cacheDir = path.join(app.getPath('userData'), 'auth-cache');
@@ -104,67 +125,20 @@ function initAuthflow() {
             fs.mkdirSync(cacheDir, { recursive: true });
         }
         
-        authflow = new Authflow('CrazyCity-Launcher', cacheDir, {
+        log('Initializing Microsoft authentication flow...');
+        
+        authflow = new Authflow('NAMF-Launcher', cacheDir, {
             authTitle: Titles.MinecraftJava,
             deviceType: 'Win32',
-            flow: 'sisu' // Flow Xbox/Sisu plus moderne
-        }, (codeData) => {
-            // Le callback reçoit un objet avec l'URL de connexion
-            console.log('Données de connexion reçues:', codeData);
-            return openMicrosoftLoginWindow(codeData);
+            flow: 'msal'
         });
     }
     return authflow;
 }
 
-// Ouvre une fenêtre Electron pour la connexion Microsoft
-function openMicrosoftLoginWindow(codeData) {
-    return new Promise((resolve, reject) => {
-        // Pour le flow sisu, on utilise directement connectUrl
-        const loginUrl = codeData.connectUrl || codeData.sisuAuthUrl || 
-                        `https://www.microsoft.com/link?otc=${codeData.user_code}`;
-        
-        console.log('Ouverture de:', loginUrl);
-        
-        let authWindow = new BrowserWindow({
-            width: 600,
-            height: 750,
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true
-            },
-            title: 'Connexion Microsoft',
-            autoHideMenuBar: true,
-            modal: true,
-            parent: mainWindow
-        });
-
-        authWindow.loadURL(loginUrl).catch(err => {
-            console.error('Erreur chargement URL:', err);
-            reject(err);
-        });
-
-        // Timer pour vérifier l'expiration
-        const expirationTimer = setTimeout(() => {
-            if (authWindow && !authWindow.isDestroyed()) {
-                authWindow.close();
-                reject(new Error('Délai d\'authentification expiré'));
-            }
-        }, (codeData.expires_in || 900) * 1000);
-
-        authWindow.on('closed', () => {
-            clearTimeout(expirationTimer);
-            authWindow = null;
-            // Ne pas rejeter ici, laisser prismarine-auth gérer le polling
-        });
-
-        // Prismarine-auth gère le polling automatiquement
-        // On résout immédiatement pour laisser le processus continuer
-        resolve();
-    });
-}
-
 function createWindow() {
+    log('Creating main window...');
+    
     mainWindow = new BrowserWindow({
         width: 1080,
         height: 640,
@@ -180,20 +154,49 @@ function createWindow() {
     });
 
     mainWindow.loadFile('index.html');
-    mainWindow.webContents.openDevTools();
+    
+    // Ouvre DevTools uniquement en développement
+    if (isDev) {
+        mainWindow.webContents.openDevTools();
+        log('DevTools opened (development mode)');
+    }
 
     mainWindow.on('closed', () => {
+        log('Main window closed');
         mainWindow = null;
     });
+    
+    log('Main window created successfully');
 }
 
-app.on('ready', createWindow);
-app.on('window-all-closed', () => app.quit());
+app.on('ready', () => {
+    log('App ready event triggered');
+    createWindow();
+});
 
-ipcMain.on('close-app', () => app.quit());
-ipcMain.on('minimize-app', () => mainWindow.minimize());
+app.on('window-all-closed', () => {
+    log('All windows closed, quitting app');
+    app.quit();
+});
+
+app.on('activate', () => {
+    if (mainWindow === null) {
+        createWindow();
+    }
+});
+
+ipcMain.on('close-app', () => {
+    log('Close app requested');
+    app.quit();
+});
+
+ipcMain.on('minimize-app', () => {
+    log('Minimize app requested');
+    mainWindow.minimize();
+});
 
 ipcMain.handle('launcher:get-instances', async () => {
+    log('Getting instances list');
     const instances = Object.values(CONFIG.INSTANCES).map((instance) => ({
         id: instance.id,
         name: instance.name,
@@ -207,23 +210,29 @@ ipcMain.handle('launcher:get-instances', async () => {
 });
 
 ipcMain.handle('app:get-version', async () => app.getVersion());
-ipcMain.handle('settings:get', async () => loadSettings());
+
+ipcMain.handle('settings:get', async () => {
+    log('Loading settings');
+    return loadSettings();
+});
+
 ipcMain.handle('settings:save', async (event, settings) => {
+    log('Saving settings: ' + JSON.stringify(settings));
     const merged = { ...loadSettings(), ...settings };
     return saveSettings(merged);
 });
 
 ipcMain.handle('auth:get-microsoft-profile', async () => {
     try {
+        log('Getting Microsoft profile');
         const account = await refreshMicrosoftAccount();
         return sanitizeMicrosoftAccount(account);
     } catch (error) {
-        console.error('Unable to load Microsoft account:', error);
+        log('Unable to load Microsoft account: ' + error.message);
         return null;
     }
 });
 
-// === CONNEXION MICROSOFT ===
 ipcMain.handle('auth:microsoft-login', async () => {
     if (microsoftLoginInProgress) {
         throw new Error('Une connexion Microsoft est déjà en cours.');
@@ -232,21 +241,18 @@ ipcMain.handle('auth:microsoft-login', async () => {
     microsoftLoginInProgress = true;
     
     try {
-        console.log('=== DEBUT CONNEXION MICROSOFT ===');
-        console.log('Ouverture de la fenêtre de connexion...');
+        log('=== DEBUT CONNEXION MICROSOFT ===');
+        log('Browser will open for Microsoft authentication...');
         
         const flow = initAuthflow();
-        
-        // Le callback openMicrosoftLoginWindow va ouvrir une fenêtre Electron
         const token = await flow.getMinecraftJavaToken({ fetchProfile: true });
 
         if (!token || !token.profile) {
             throw new Error('Impossible de récupérer le profil Minecraft.');
         }
 
-        console.log('✓ Connexion réussie pour:', token.profile.name);
+        log('✓ Successfully connected as: ' + token.profile.name);
 
-        // Formater le compte pour minecraft-java-core
         const account = {
             name: token.profile.name,
             uuid: token.profile.id,
@@ -267,18 +273,16 @@ ipcMain.handle('auth:microsoft-login', async () => {
         persistMicrosoftAccount(account);
         cachedMicrosoftAccount = account;
         
-        console.log('=== CONNEXION MICROSOFT TERMINEE ===');
+        log('=== CONNEXION MICROSOFT TERMINEE ===');
         return sanitizeMicrosoftAccount(account);
         
     } catch (error) {
-        console.error('=== ERREUR CONNEXION MICROSOFT ===');
-        console.error('Message:', error.message);
-        console.error('Stack:', error.stack);
+        log('=== ERREUR CONNEXION MICROSOFT ===');
+        log('Error: ' + error.message);
         
-        // Messages d'erreur plus explicites
         let errorMessage = 'Impossible de se connecter avec Microsoft.';
         
-        if (error.message.includes('fermée par l\'utilisateur') || error.message.includes('User cancelled')) {
+        if (error.message.includes('User cancelled')) {
             errorMessage = 'Connexion annulée.';
         } else if (error.message.includes('timeout')) {
             errorMessage = 'Délai d\'attente dépassé. Veuillez réessayer.';
@@ -295,11 +299,10 @@ ipcMain.handle('auth:microsoft-login', async () => {
 });
 
 ipcMain.handle('auth:logout', async () => {
-    console.log('Déconnexion du compte Microsoft...');
+    log('Logging out from Microsoft account');
     
     clearMicrosoftAccount();
     
-    // Nettoyer le cache d'authentification
     const cacheDir = path.join(app.getPath('userData'), 'auth-cache');
     if (fs.existsSync(cacheDir)) {
         const files = fs.readdirSync(cacheDir);
@@ -307,37 +310,43 @@ ipcMain.handle('auth:logout', async () => {
             try {
                 fs.unlinkSync(path.join(cacheDir, file));
             } catch (err) {
-                console.error('Erreur suppression cache:', err);
+                log('Error deleting cache file: ' + err.message);
             }
         }
     }
     
     authflow = null;
-    console.log('✓ Déconnexion réussie');
+    log('✓ Successfully logged out');
     return true;
 });
 
 ipcMain.on('launch-game', async (event, launchPayload) => {
     try {
-        console.log("Instance demandée:", launchPayload?.instanceId);
+        log('=== GAME LAUNCH REQUESTED ===');
+        log('Instance: ' + launchPayload?.instanceId);
 
         const instance = getInstanceConfig(launchPayload?.instanceId);
         if (!instance) {
             throw new Error('Instance introuvable. Veuillez en sélectionner une autre.');
         }
 
+        log('Instance config loaded: ' + instance.name);
+
         const { authenticator, username, type } = await resolveAuthenticator(launchPayload?.account);
+        log('Authentication resolved: ' + type + ' - ' + username);
 
         const gameDir = path.join(app.getPath('home'), instance.gameDirName || path.join('.crazycity', instance.id));
         const modsDir = path.join(gameDir, 'mods');
 
-        console.log(`[${instance.id}] Game directory:`, gameDir);
-        console.log(`[${instance.id}] Mods directory:`, modsDir);
+        log(`Game directory: ${gameDir}`);
+        log(`Mods directory: ${modsDir}`);
 
         if (!fs.existsSync(gameDir)) fs.mkdirSync(gameDir, { recursive: true });
         if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
 
         const modFiles = fs.readdirSync(modsDir).filter(f => f.endsWith('.jar'));
+        log(`Found ${modFiles.length} mod files`);
+        
         if (modFiles.length === 0) {
             event.reply('status', { step: 'Téléchargement', detail: `Téléchargement des mods ${instance.name}...`, progress: 10, color: '#2196f3' });
             await downloadAndExtractMods(instance, modsDir, event);
@@ -350,7 +359,6 @@ ipcMain.on('launch-game', async (event, launchPayload) => {
         const settings = loadSettings();
         const launcher = new Launch();
 
-        // Build JVM args: memory settings + additional JVM args
         const jvmArgs = [];
         if (settings.memory?.min) {
             jvmArgs.push(`-Xms${settings.memory.min}`);
@@ -361,6 +369,8 @@ ipcMain.on('launch-game', async (event, launchPayload) => {
         if (settings.jvmArgs && Array.isArray(settings.jvmArgs) && settings.jvmArgs.length > 0) {
             jvmArgs.push(...settings.jvmArgs);
         }
+
+        log('JVM Args: ' + jvmArgs.join(' '));
 
         const opts = {
             url: null,
@@ -388,6 +398,8 @@ ipcMain.on('launch-game', async (event, launchPayload) => {
             memory: settings.memory || instance.memory || { min: '2G', max: '4G' }
         };
 
+        log('Launch options prepared');
+
         launcher.on('progress', (progress, size, element) => {
             const percent = Math.round((progress / size) * 100);
             event.reply('status', { step: 'Téléchargement Minecraft', detail: element, progress: 60 + (percent * 0.35), color: '#ff9800' });
@@ -396,28 +408,33 @@ ipcMain.on('launch-game', async (event, launchPayload) => {
         launcher.on('data', (data) => {
             const line = data.toString().trim();
             if (line) {
-                console.log(`[${instance.id}][Minecraft]`, line);
+                log(`[Minecraft] ${line}`);
                 event.reply('log', line);
             }
         });
 
         launcher.on('close', (code) => {
+            log(`Game closed with exit code: ${code}`);
             event.reply('status', { step: 'Jeu fermé', detail: `${instance.name} s'est arrêté avec le code ${code}`, progress: 100, color: '#607d8b' });
             event.reply('game-closed', { code });
         });
 
         launcher.on('error', (err) => {
+            log(`Game error: ${err.message}`);
             event.reply('status', { step: 'Erreur', detail: err.message, progress: 0, color: '#f44336' });
             event.reply('launch-error', { error: err.message });
         });
 
-        console.log(`Lancement de l'instance ${instance.name}...`);
+        log('Launching game...');
         await launcher.Launch(opts);
 
+        log('Game launched successfully');
         event.reply('status', { step: 'Terminé', detail: `${instance.name} lancé avec succès !`, progress: 100, color: '#4caf50' });
         event.reply('launch-complete', { type, instanceId: instance.id });
 
     } catch (error) {
+        log(`Launch error: ${error.message}`);
+        log(`Stack trace: ${error.stack}`);
         event.reply('status', { step: 'Erreur', detail: error.message, progress: 0, color: '#f44336' });
         event.reply('launch-error', { error: error.message });
     }
@@ -430,21 +447,27 @@ async function downloadAndExtractMods(instance, modsDir, event) {
     }
     const zipPath = path.join(app.getPath('temp'), `${instance.id}-mods.zip`);
     try {
+        log(`Downloading mods from: ${instance.modsZipUrl}`);
         event.reply('status', { step: 'Téléchargement', detail: `Téléchargement du pack de mods ${instance.name}...`, progress: 15, color: '#2196f3' });
+        
         await downloadFile(instance.modsZipUrl, zipPath, (progress) => {
             event.reply('status', { step: 'Téléchargement', detail: `Téléchargement... ${progress}%`, progress: 15 + (progress * 0.35), color: '#2196f3' });
         });
 
+        log('Extracting mods...');
         event.reply('status', { step: 'Extraction', detail: 'Extraction des mods...', progress: 50, color: '#ff9800' });
+        
         const zip = new AdmZip(zipPath);
         zip.extractAllTo(modsDir, true);
 
         const modFiles = fs.readdirSync(modsDir).filter(f => f.endsWith('.jar'));
         fs.unlinkSync(zipPath);
 
+        log(`Successfully installed ${modFiles.length} mods`);
         event.reply('status', { step: 'Installation terminée', detail: `${modFiles.length} mods installés !`, progress: 60, color: '#4caf50' });
 
     } catch (error) {
+        log(`Mod download/extraction error: ${error.message}`);
         throw new Error('Erreur lors du téléchargement ou extraction : ' + error.message);
     }
 }
@@ -538,17 +561,17 @@ async function refreshMicrosoftAccount() {
     if (!stored) return null;
     
     try {
-        console.log('Tentative de refresh du compte Microsoft...');
+        log('Attempting to refresh Microsoft token...');
         const flow = initAuthflow();
         const token = await flow.getMinecraftJavaToken({ fetchProfile: true });
 
         if (!token || !token.profile) {
-            console.warn('Refresh échoué, compte expiré');
+            log('Refresh failed, account expired');
             clearMicrosoftAccount();
             return null;
         }
 
-        console.log('✓ Refresh réussi pour:', token.profile.name);
+        log('✓ Token refreshed for: ' + token.profile.name);
 
         const refreshed = {
             name: token.profile.name,
@@ -572,7 +595,7 @@ async function refreshMicrosoftAccount() {
         return refreshed;
         
     } catch (error) {
-        console.error('Erreur refresh Microsoft:', error.message);
+        log('Error refreshing Microsoft token: ' + error.message);
         return stored;
     }
 }
@@ -584,7 +607,7 @@ function readMicrosoftAccount() {
         const raw = fs.readFileSync(microsoft, 'utf-8');
         return JSON.parse(raw);
     } catch (error) {
-        console.error('Unable to read Microsoft account:', error);
+        log('Unable to read Microsoft account: ' + error.message);
         return null;
     }
 }
@@ -595,6 +618,7 @@ function persistMicrosoftAccount(account) {
         fs.mkdirSync(dir, { recursive: true });
     }
     fs.writeFileSync(microsoft, JSON.stringify(account, null, 4), 'utf-8');
+    log('Microsoft account persisted');
 }
 
 function clearMicrosoftAccount() {
@@ -603,4 +627,5 @@ function clearMicrosoftAccount() {
         fs.unlinkSync(microsoft);
     }
     cachedMicrosoftAccount = null;
+    log('Microsoft account cleared');
 }
